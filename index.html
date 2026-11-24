@@ -1,333 +1,1101 @@
 <!DOCTYPE html>
-<html lang="ko" class="dark">
+<html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AES-256 보안 암호화 / 해독기 (PBKDF2 이중 보안)</title>
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        darkBg: '#09090b',
-                        cardBg: '#121215',
-                        borderBg: '#27272a',
-                        accent: '#3b82f6',
-                        accentHover: '#2563eb'
-                    },
-                    fontFamily: {
-                        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'Liberation Mono', 'Courier New', 'monospace'],
-                        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif']
-                    }
-                }
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- iOS/iPadOS 홈 화면 독립 웹 앱(Standalone) 실행 메타태그 -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="AES-256 Vault">
+    <meta name="theme-color" content="#09090b">
+    <title>AES-256 Crypto Studio (오프라인 · 텍스트/파일 이중 보안)</title>
+    <style>
+        /* =========================================================
+           100% 자체 내장 CSS (외부 CDN 없이 완전 오프라인 작동)
+           ========================================================= */
+        :root {
+            --bg-dark: #09090b;
+            --bg-card: #121215;
+            --bg-input: #18181b;
+            --bg-deep: #050507;
+            --border-color: #27272a;
+            --border-hover: #3f3f46;
+            --text-main: #f4f4f5;
+            --text-sub: #a1a1aa;
+            --text-muted: #71717a;
+            --blue: #3b82f6;
+            --blue-soft: rgba(59, 130, 246, 0.14);
+            --emerald: #10b981;
+            --emerald-soft: rgba(16, 185, 129, 0.14);
+            --amber: #f59e0b;
+            --amber-soft: rgba(245, 158, 11, 0.14);
+            --rose: #f43f5e;
+            --rose-soft: rgba(244, 63, 94, 0.14);
+            --radius-lg: 14px;
+            --radius-md: 10px;
+            --radius-sm: 8px;
+            --font-sans: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Segoe UI", Roboto, sans-serif;
+            --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: var(--font-sans);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            line-height: 1.5;
+            overflow-x: hidden;
+        }
+
+        /* 스크롤바 */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-dark); }
+        ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
+
+        /* 헤더 */
+        header {
+            position: sticky;
+            top: 0;
+            z-index: 40;
+            background: rgba(18, 18, 21, 0.88);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-color);
+            padding: env(safe-area-inset-top) 0 0 0;
+        }
+
+        .header-inner {
+            max-width: 1240px;
+            margin: 0 auto;
+            padding: 14px 20px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .brand-icon {
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            background: var(--bg-input);
+            border: 1px solid var(--border-hover);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--blue);
+            flex-shrink: 0;
+        }
+
+        .brand-title {
+            font-size: 16px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .badge-extreme {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--amber);
+            background: var(--amber-soft);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            padding: 2px 8px;
+            border-radius: 6px;
+        }
+
+        .brand-sub {
+            font-size: 12px;
+            color: var(--text-sub);
+            margin-top: 2px;
+        }
+
+        .status-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--text-sub);
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
+            padding: 6px 12px;
+            border-radius: 999px;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--emerald);
+        }
+
+        .dot.offline {
+            background: var(--amber);
+        }
+
+        /* 메인 컨테이너 */
+        main {
+            max-width: 1240px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 24px 20px 40px;
+            flex-grow: 1;
+        }
+
+        /* 모드 스위처 탭 (텍스트 모드 / 파일 모드) */
+        .mode-switcher {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            padding: 6px;
+            border-radius: var(--radius-lg);
+            max-width: 520px;
+            margin: 0 auto 24px;
+        }
+
+        .mode-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 11px 16px;
+            border-radius: var(--radius-md);
+            border: none;
+            background: transparent;
+            color: var(--text-sub);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .mode-btn.active {
+            background: #27272a;
+            color: #ffffff;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+        }
+
+        /* 2열 그리드 */
+        .grid-panels {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 24px;
+        }
+
+        @media (min-width: 960px) {
+            .grid-panels {
+                grid-template-columns: 1fr 1fr;
             }
         }
-    </script>
-    <!-- FontAwesome icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        /* Custom scrollbar for dark theme */
-        ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
+
+        /* 카드 패널 */
+        .panel {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 22px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
         }
-        ::-webkit-scrollbar-track {
-            background: #09090b;
+
+        .panel-accent-blue {
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #3b82f6, #6366f1);
         }
-        ::-webkit-scrollbar-thumb {
+
+        .panel-accent-emerald {
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #10b981, #14b8a6);
+        }
+
+        .panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 18px;
+            gap: 8px;
+        }
+
+        .panel-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 17px;
+            font-weight: 600;
+        }
+
+        .panel-tag {
+            font-size: 11px;
+            color: var(--text-sub);
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
+            padding: 4px 9px;
+            border-radius: 6px;
+        }
+
+        /* 폼 요소 */
+        .form-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .field-label-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        label.field-label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-sub);
+            letter-spacing: 0.02em;
+            margin-bottom: 6px;
+        }
+
+        .field-label-row label.field-label {
+            margin-bottom: 0;
+        }
+
+        textarea, input[type="text"], input[type="password"], select {
+            width: 100%;
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            color: var(--text-main);
+            font-size: 13px;
+            padding: 11px 13px;
+            outline: none;
+            transition: border-color 0.2s;
+            font-family: var(--font-sans);
+        }
+
+        textarea:focus, input:focus, select:focus {
+            border-color: #71717a;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 82px;
+        }
+
+        .mono-field {
+            font-family: var(--font-mono);
+            font-size: 12px;
+            background: var(--bg-deep);
+        }
+
+        .text-emerald { color: var(--emerald); }
+        .text-blue { color: #60a5fa; }
+
+        /* 파일 드롭존 */
+        .dropzone {
+            border: 1.5px dashed var(--border-hover);
+            background: rgba(24, 24, 27, 0.65);
+            border-radius: var(--radius-md);
+            padding: 20px 16px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .dropzone:hover, .dropzone.dragover {
+            border-color: var(--blue);
+            background: rgba(59, 130, 246, 0.08);
+        }
+
+        .dropzone.decrypt-zone:hover, .dropzone.decrypt-zone.dragover {
+            border-color: var(--emerald);
+            background: rgba(16, 185, 129, 0.08);
+        }
+
+        .dropzone-icon {
+            width: 36px;
+            height: 36px;
+            margin: 0 auto 8px;
+            border-radius: 10px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--blue);
+        }
+
+        .decrypt-zone .dropzone-icon {
+            color: var(--emerald);
+        }
+
+        .dropzone-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .dropzone-desc {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .file-badge {
+            margin-top: 10px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--bg-deep);
+            border: 1px solid var(--border-hover);
+            padding: 6px 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            color: var(--text-main);
+            max-width: 100%;
+            word-break: break-all;
+        }
+
+        /* 비밀번호 박스 & 엔트로피 미터 */
+        .pass-box {
+            background: rgba(24, 24, 27, 0.55);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 12px;
+        }
+
+        .input-rel {
+            position: relative;
+        }
+
+        .input-rel input {
+            padding-right: 38px;
+            background: var(--bg-deep);
+        }
+
+        .eye-btn {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--text-sub);
+            cursor: pointer;
+            padding: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .meter-track {
+            width: 100%;
+            height: 5px;
+            background: var(--bg-deep);
+            border-radius: 999px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+
+        .meter-fill {
+            height: 100%;
+            width: 0%;
+            transition: width 0.25s ease, background-color 0.25s ease;
+        }
+
+        /* 타이머 행 */
+        .timer-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            background: rgba(24, 24, 27, 0.45);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 9px 12px;
+            font-size: 12px;
+            color: var(--text-sub);
+        }
+
+        .timer-row select {
+            width: auto;
+            padding: 6px 10px;
+            font-size: 12px;
+            background: var(--bg-deep);
+        }
+
+        /* 버튼 스타일 */
+        .btn-primary {
+            width: 100%;
+            padding: 13px 16px;
+            border-radius: var(--radius-md);
+            border: none;
+            background: #f4f4f5;
+            color: #09090b;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: transform 0.1s ease, opacity 0.2s ease;
+        }
+
+        .btn-primary:active { transform: scale(0.99); }
+        .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
+
+        .btn-secondary {
+            width: 100%;
+            padding: 13px 16px;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-hover);
             background: #27272a;
-            border-radius: 3px;
+            color: #f4f4f5;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: transform 0.1s ease, background 0.2s ease;
         }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #3f3f46;
+
+        .btn-secondary:hover { background: #323236; }
+        .btn-secondary:active { transform: scale(0.99); }
+        .btn-secondary:disabled { opacity: 0.55; cursor: not-allowed; }
+
+        .btn-download {
+            width: 100%;
+            padding: 12px 14px;
+            border-radius: var(--radius-md);
+            border: 1px solid rgba(59, 130, 246, 0.4);
+            background: var(--blue-soft);
+            color: #93c5fd;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            text-decoration: none;
         }
+
+        .btn-download.emerald {
+            border-color: rgba(16, 185, 129, 0.4);
+            background: var(--emerald-soft);
+            color: #6ee7b7;
+        }
+
+        .mini-btn {
+            background: none;
+            border: none;
+            color: var(--text-sub);
+            font-size: 12px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 6px;
+            border-radius: 6px;
+        }
+
+        .mini-btn:hover {
+            color: var(--text-main);
+            background: var(--bg-input);
+        }
+
+        .divider {
+            border: none;
+            border-top: 1px solid var(--border-color);
+            margin: 4px 0;
+        }
+
+        .panel-footer {
+            margin-top: 18px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(39, 39, 42, 0.6);
+            font-size: 11.5px;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* 이미지/텍스트 미리보기 박스 */
+        .preview-box {
+            margin-top: 10px;
+            background: var(--bg-deep);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 10px;
+            text-align: center;
+        }
+
+        .preview-box img {
+            max-width: 100%;
+            max-height: 220px;
+            border-radius: 8px;
+            object-fit: contain;
+        }
+
+        /* 하단 알고리즘 안내 카드 */
+        .info-card {
+            margin-top: 26px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 18px 20px;
+        }
+
+        .info-title {
+            font-size: 13px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+        }
+
+        @media (min-width: 768px) {
+            .info-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        .info-item {
+            background: rgba(24, 24, 27, 0.55);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 12px;
+            font-size: 12px;
+            color: var(--text-sub);
+        }
+
+        .info-item strong {
+            display: block;
+            margin-bottom: 4px;
+            font-size: 12.5px;
+        }
+
+        footer {
+            border-top: 1px solid var(--border-color);
+            background: var(--bg-card);
+            padding: 16px 20px calc(16px + env(safe-area-inset-bottom));
+            text-align: center;
+            font-size: 11.5px;
+            color: var(--text-muted);
+        }
+
+        /* 토스트 알림 */
+        #toast {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            left: 16px;
+            max-width: 400px;
+            margin-left: auto;
+            z-index: 99;
+            background: #27272a;
+            border: 1px solid #3f3f46;
+            color: #f4f4f5;
+            padding: 12px 16px;
+            border-radius: 12px;
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            font-weight: 500;
+            transform: translateY(-130%);
+            opacity: 0;
+            transition: transform 0.28s ease, opacity 0.28s ease;
+            pointer-events: none;
+        }
+
+        #toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .hidden { display: none !important; }
     </style>
 </head>
-<body class="bg-darkBg text-zinc-200 font-sans min-h-screen flex flex-col justify-between selection:bg-zinc-700 selection:text-white">
+<body>
 
-    <!-- Toast Notification -->
-    <div id="toast" class="fixed top-5 right-5 z-50 transform translate-y-[-100px] opacity-0 transition-all duration-300 ease-in-out bg-zinc-800 text-zinc-100 border border-zinc-700 px-4 py-3 rounded-lg shadow-2xl flex items-center space-x-3 pointer-events-none">
-        <i id="toast-icon" class="fa-solid fa-circle-check text-emerald-400"></i>
-        <span id="toast-message" class="text-sm font-medium">메시지</span>
+    <!-- 토스트 알림 -->
+    <div id="toast" role="status" aria-live="polite">
+        <span id="toast-icon"></span>
+        <span id="toast-message">메시지</span>
     </div>
 
-    <!-- Header -->
-    <header class="border-b border-borderBg bg-cardBg/50 backdrop-blur-md sticky top-0 z-40">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-            <div class="flex items-center space-x-3">
-                <div class="w-8 h-8 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-100">
-                    <i class="fa-solid fa-shield-halved text-sm text-blue-400"></i>
+    <!-- 상단 헤더 -->
+    <header>
+        <div class="header-inner">
+            <div class="brand">
+                <div class="brand-icon" aria-hidden="true">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                    </svg>
                 </div>
                 <div>
-                    <h1 class="text-base font-semibold text-zinc-100 tracking-wide">AES-256 Crypto Studio <span class="text-xs font-normal text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 ml-2">Extreme 600k + Double AES</span></h1>
-                    <p class="text-xs text-zinc-400">Double AES-GCM 256 + PBKDF2 600,000회 + AAD 무결성 검증 초강력 암호화</p>
+                    <div class="brand-title">
+                        <span>AES-256 Crypto Studio</span>
+                        <span class="badge-extreme">Extreme 600k + Double AES</span>
+                    </div>
+                    <p class="brand-sub">텍스트 & 모든 파일(사진·문서·코드) 100% 오프라인 로컬 이중 암호화</p>
                 </div>
             </div>
-            <div class="flex items-center space-x-2 text-xs text-zinc-400 bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-full">
-                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span>보안 레벨: 극상 (Extreme Shield)</span>
+
+            <div class="status-group">
+                <div class="status-pill" id="network-pill">
+                    <span class="dot" id="network-dot"></span>
+                    <span id="network-text">로컬 엔진 준비됨</span>
+                </div>
             </div>
         </div>
     </header>
 
-    <!-- Main Content Grid -->
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full flex-grow">
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <!-- 메인 영역 -->
+    <main>
+        <!-- 모드 전환 탭 -->
+        <div class="mode-switcher" role="tablist">
+            <button type="button" id="tab-text" class="mode-btn active" onclick="switchMode('text')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/>
+                </svg>
+                <span>텍스트 암호화</span>
+            </button>
+            <button type="button" id="tab-file" class="mode-btn" onclick="switchMode('file')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                </svg>
+                <span>파일 암호화 (사진·문서·코드)</span>
+            </button>
+        </div>
 
-            <!-- 1. 암호화 섹션 (Encryption Panel) -->
-            <section class="bg-cardBg border border-borderBg rounded-xl p-6 shadow-xl flex flex-col justify-between relative overflow-hidden group">
-                <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-indigo-500"></div>
+        <!-- 좌/우 패널 그리드 -->
+        <div class="grid-panels">
 
+            <!-- =========================================================
+                 1. 암호화 패널 (Encryption Panel)
+                 ========================================================= -->
+            <section class="panel">
+                <div class="panel-accent-blue"></div>
                 <div>
-                    <!-- Panel Title -->
-                    <div class="flex items-center justify-between mb-5">
-                        <div class="flex items-center space-x-2">
-                            <i class="fa-solid fa-key text-blue-400"></i>
-                            <h2 class="text-lg font-medium text-zinc-100">강화 암호화 (Encrypt)</h2>
+                    <div class="panel-header">
+                        <div class="panel-title">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                            </svg>
+                            <span>강화 암호화 (Encrypt)</span>
                         </div>
-                        <span class="text-xs text-zinc-500 bg-zinc-900 border border-zinc-800 px-2 py-1 rounded">평문 ➔ 이중 암호문</span>
+                        <span class="panel-tag" id="encrypt-mode-tag">평문 ➔ 이중 암호문</span>
                     </div>
 
-                    <!-- Input Text area -->
-                    <div class="space-y-4">
-                        <div>
-                            <label class="block text-xs font-medium text-zinc-400 uppercase tracking-wider mb-2">1. 암호화할 평문 입력</label>
-                            <textarea id="encrypt-input" rows="3" placeholder="암호화하려는 텍스트나 비밀 메시지를 입력하세요..." class="w-full bg-zinc-900/80 border border-zinc-800 rounded-lg p-3.5 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 transition-all font-sans resize-none"></textarea>
+                    <div class="form-stack">
+                        <!-- [텍스트 모드 입력] -->
+                        <div id="encrypt-text-area">
+                            <label class="field-label" for="encrypt-input">1. 암호화할 평문 입력</label>
+                            <textarea id="encrypt-input" rows="3" placeholder="암호화하려는 텍스트나 비밀 메시지를 입력하세요..."></textarea>
                         </div>
 
-                        <!-- Password input & Entropy Meter -->
-                        <div class="bg-zinc-900/50 border border-zinc-800/80 p-3.5 rounded-lg space-y-2">
-                            <div class="flex justify-between items-center">
-                                <label class="block text-xs font-medium text-zinc-300 uppercase tracking-wider">2. 보조 비밀번호 (Passphrase) - 필수 지정</label>
-                                <span id="entropy-text" class="text-[10px] text-zinc-500">암호 강도: 없음</span>
+                        <!-- [파일 모드 입력] -->
+                        <div id="encrypt-file-area" class="hidden">
+                            <label class="field-label">1. 암호화할 원본 파일 선택 (사진, PDF, 문서, 코드 등 모든 파일)</label>
+                            <div id="encrypt-dropzone" class="dropzone" onclick="document.getElementById('encrypt-file-input').click()">
+                                <input type="file" id="encrypt-file-input" class="hidden" onchange="handleEncryptFileSelect(this.files[0])">
+                                <div class="dropzone-icon">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+                                    </svg>
+                                </div>
+                                <div class="dropzone-title">탭하여 파일 선택 또는 여기로 드래그</div>
+                                <div class="dropzone-desc">원본 파일명·확장자까지 함께 암호화됩니다 (권장 50MB 이하)</div>
+                                <div id="encrypt-file-info" class="file-badge hidden"></div>
                             </div>
-                            <div class="relative">
-                                <input id="encrypt-passphrase" type="password" oninput="checkStrength(this.value)" placeholder="해독 시 필요한 본인만의 비밀번호를 입력하세요" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg py-2 px-3 pr-8 text-xs text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-zinc-500 transition-all">
-                                <button type="button" onclick="togglePassVisibility('encrypt-passphrase', 'pass-icon-1')" class="absolute right-2.5 top-2.5 text-zinc-500 hover:text-zinc-300">
-                                    <i id="pass-icon-1" class="fa-solid fa-eye text-xs"></i>
+                        </div>
+
+                        <!-- 2. 보조 비밀번호 -->
+                        <div class="pass-box">
+                            <div class="field-label-row">
+                                <label class="field-label" for="encrypt-passphrase">2. 보조 비밀번호 (Passphrase) - 필수</label>
+                                <span id="entropy-text" style="font-size: 11px; color: var(--text-muted);">암호 강도: 없음</span>
+                            </div>
+                            <div class="input-rel">
+                                <input id="encrypt-passphrase" type="password" oninput="checkStrength(this.value)" placeholder="해독 시 필요한 본인만의 비밀번호 입력">
+                                <button type="button" class="eye-btn" onclick="togglePassVisibility('encrypt-passphrase', this)" aria-label="비밀번호 보기">
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                                    </svg>
                                 </button>
                             </div>
-                            <!-- Strength Meter Bar -->
-                            <div class="w-full bg-zinc-950 h-1.5 rounded-full overflow-hidden flex">
-                                <div id="entropy-bar" class="h-full bg-zinc-700 w-0 transition-all duration-300"></div>
+                            <div class="meter-track">
+                                <div id="entropy-bar" class="meter-fill"></div>
                             </div>
                         </div>
 
-                        <!-- Auto Wipe Timer Setting -->
-                        <div class="flex items-center justify-between text-xs text-zinc-400 bg-zinc-900/30 p-2.5 border border-zinc-800/50 rounded-lg">
-                            <span class="flex items-center gap-1.5"><i class="fa-solid fa-clock-rotate-left text-zinc-500"></i> 보안 파기 타이머</span>
-                            <select id="auto-wipe-select" class="bg-zinc-950 border border-zinc-800 text-zinc-300 text-xs rounded px-2 py-1 focus:outline-none">
-                                <option value="0">사용 안함</option>
+                        <!-- 보안 파기 타이머 -->
+                        <div class="timer-row">
+                            <span>보안 자동 파기 타이머</span>
+                            <select id="auto-wipe-select" onchange="resetAutoWipeTimer()">
+                                <option value="0">사용 안 함</option>
                                 <option value="30">30초 후 자동 지우기</option>
                                 <option value="60" selected>1분 후 자동 지우기</option>
                                 <option value="180">3분 후 자동 지우기</option>
                             </select>
                         </div>
 
-                        <!-- Button -->
-                        <button id="btn-encrypt" onclick="handleEncrypt()" class="w-full bg-zinc-100 hover:bg-white text-zinc-900 font-medium py-2.5 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2 text-sm shadow-md active:scale-[0.99]">
-                            <i class="fa-solid fa-[#09090b] fa-shield-halved"></i>
-                            <span>이중 키 생성 및 암호화 실행</span>
+                        <!-- 실행 버튼 -->
+                        <button type="button" id="btn-encrypt" class="btn-primary" onclick="handleEncrypt()">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                            </svg>
+                            <span id="btn-encrypt-label">이중 키 생성 및 텍스트 암호화</span>
                         </button>
 
-                        <hr class="border-zinc-800/80 my-4">
+                        <hr class="divider">
 
-                        <!-- Outputs -->
-                        <!-- 1. Key Output -->
+                        <!-- 출력 1: 시스템 인증 키 -->
                         <div>
-                            <div class="flex justify-between items-center mb-1.5">
-                                <label class="block text-xs font-medium text-zinc-400 uppercase tracking-wider">생성된 시스템 인증 키 (Secret Key)</label>
-                                <button onclick="copyToClipboard('encrypt-key-output', '인증 키')" class="text-xs text-zinc-400 hover:text-zinc-200 transition-colors flex items-center space-x-1">
-                                    <i class="fa-regular fa-copy"></i>
+                            <div class="field-label-row">
+                                <label class="field-label" for="encrypt-key-output">생성된 시스템 인증 키 (Secret Key)</label>
+                                <button type="button" class="mini-btn" onclick="copyToClipboard('encrypt-key-output', '인증 키')">
                                     <span>복사</span>
                                 </button>
                             </div>
-                            <input id="encrypt-key-output" type="text" readonly placeholder="암호화 시 인증 키가 생성됩니다." class="w-full bg-zinc-950 border border-zinc-800/80 rounded-lg py-2.5 px-3 text-xs text-emerald-400 font-mono focus:outline-none select-all">
+                            <input id="encrypt-key-output" type="text" readonly class="mono-field text-emerald" placeholder="암호화 실행 시 인증 키가 자동 생성됩니다.">
                         </div>
 
-                        <!-- 2. Ciphertext Output -->
-                        <div>
-                            <div class="flex justify-between items-center mb-1.5">
-                                <label class="block text-xs font-medium text-zinc-400 uppercase tracking-wider">암호화된 코드 (Ciphertext)</label>
-                                <button onclick="copyToClipboard('encrypt-cipher-output', '암호문')" class="text-xs text-zinc-400 hover:text-zinc-200 transition-colors flex items-center space-x-1">
-                                    <i class="fa-regular fa-copy"></i>
+                        <!-- 출력 2-A: 텍스트 모드 암호문 -->
+                        <div id="encrypt-text-result-box">
+                            <div class="field-label-row">
+                                <label class="field-label" for="encrypt-cipher-output">암호화된 코드 (Ciphertext)</label>
+                                <button type="button" class="mini-btn" onclick="copyToClipboard('encrypt-cipher-output', '암호문')">
                                     <span>복사</span>
                                 </button>
                             </div>
-                            <textarea id="encrypt-cipher-output" readonly rows="2" placeholder="암호화된 결과 코드가 여기에 출력됩니다." class="w-full bg-zinc-950 border border-zinc-800/80 rounded-lg p-3 text-xs text-blue-400 font-mono focus:outline-none select-all resize-none"></textarea>
+                            <textarea id="encrypt-cipher-output" readonly rows="2" class="mono-field text-blue" placeholder="암호화된 Base64 코드가 출력됩니다."></textarea>
+                        </div>
+
+                        <!-- 출력 2-B: 파일 모드 다운로드 -->
+                        <div id="encrypt-file-result-box" class="hidden">
+                            <label class="field-label">암호화된 파일 다운로드 (.enc)</label>
+                            <a id="download-encrypted-link" class="btn-download hidden" download="encrypted.enc">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                                </svg>
+                                <span id="download-encrypted-name">암호화 파일 저장</span>
+                            </a>
+                            <div id="encrypt-file-placeholder" style="font-size: 12px; color: var(--text-muted); background: var(--bg-deep); border: 1px solid var(--border-color); padding: 11px; border-radius: var(--radius-md); text-align: center;">
+                                암호화를 실행하면 .enc 보안 파일 다운로드 버튼이 활성화됩니다.
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Footer tip -->
-                <div class="mt-6 pt-3 border-t border-zinc-800/50 flex items-center justify-between text-xs text-zinc-500">
-                    <span class="flex items-center gap-1.5"><i class="fa-solid fa-lock text-zinc-600"></i> [인증 키 + 비밀번호] 둘 다 있어야 해독이 가능합니다.</span>
+                <div class="panel-footer">
+                    <span>[인증 키 + 보조 비밀번호] 두 가지가 모두 있어야만 해독할 수 있습니다.</span>
                 </div>
             </section>
 
-            <!-- 2. 해독 섹션 (Decryption Panel) -->
-            <section class="bg-cardBg border border-borderBg rounded-xl p-6 shadow-xl flex flex-col justify-between relative overflow-hidden group">
-                <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 to-teal-500"></div>
-
+            <!-- =========================================================
+                 2. 해독 패널 (Decryption Panel)
+                 ========================================================= -->
+            <section class="panel">
+                <div class="panel-accent-emerald"></div>
                 <div>
-                    <!-- Panel Title -->
-                    <div class="flex items-center justify-between mb-5">
-                        <div class="flex items-center space-x-2">
-                            <i class="fa-solid fa-unlock text-emerald-400"></i>
-                            <h2 class="text-lg font-medium text-zinc-100">해독 (Decrypt)</h2>
+                    <div class="panel-header">
+                        <div class="panel-title">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/>
+                            </svg>
+                            <span>무결성 검증 및 해독 (Decrypt)</span>
                         </div>
-                        <span class="text-xs text-zinc-500 bg-zinc-900 border border-zinc-800 px-2 py-1 rounded">암호문 ➔ 평문</span>
+                        <span class="panel-tag" id="decrypt-mode-tag">암호문 ➔ 평문</span>
                     </div>
 
-                    <!-- Inputs -->
-                    <div class="space-y-4">
-                        <!-- Key Input -->
+                    <div class="form-stack">
+                        <!-- 1. 인증 키 입력 -->
                         <div>
-                            <label class="block text-xs font-medium text-zinc-400 uppercase tracking-wider mb-2">1. 시스템 인증 키 입력</label>
-                            <input id="decrypt-key-input" type="text" placeholder="생성되었던 시스템 인증 키를 입력하세요..." class="w-full bg-zinc-900/80 border border-zinc-800 rounded-lg py-2.5 px-3 text-xs text-zinc-100 font-mono placeholder-zinc-600 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 transition-all">
+                            <label class="field-label" for="decrypt-key-input">1. 시스템 인증 키 입력</label>
+                            <input id="decrypt-key-input" type="text" class="mono-field" placeholder="암호화 시 발급된 시스템 인증 키를 붙여넣으세요...">
                         </div>
 
-                        <!-- Passphrase Input -->
+                        <!-- 2. 보조 비밀번호 입력 -->
                         <div>
-                            <label class="block text-xs font-medium text-zinc-400 uppercase tracking-wider mb-2">2. 설정했던 보조 비밀번호 입력</label>
-                            <div class="relative">
-                                <input id="decrypt-passphrase" type="password" placeholder="암호화할 때 설정했던 보조 비밀번호를 입력하세요" class="w-full bg-zinc-900/80 border border-zinc-800 rounded-lg py-2.5 px-3 pr-8 text-xs text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 transition-all">
-                                <button type="button" onclick="togglePassVisibility('decrypt-passphrase', 'pass-icon-2')" class="absolute right-2.5 top-3 text-zinc-500 hover:text-zinc-300">
-                                    <i id="pass-icon-2" class="fa-solid fa-eye text-xs"></i>
+                            <label class="field-label" for="decrypt-passphrase">2. 설정했던 보조 비밀번호 입력</label>
+                            <div class="input-rel">
+                                <input id="decrypt-passphrase" type="password" placeholder="암호화할 때 사용한 보조 비밀번호 입력">
+                                <button type="button" class="eye-btn" onclick="togglePassVisibility('decrypt-passphrase', this)" aria-label="비밀번호 보기">
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                                    </svg>
                                 </button>
                             </div>
                         </div>
 
-                        <!-- Ciphertext Input -->
-                        <div>
-                            <label class="block text-xs font-medium text-zinc-400 uppercase tracking-wider mb-2">3. 암호화된 코드 입력</label>
-                            <textarea id="decrypt-cipher-input" rows="2" placeholder="암호화된 코드(Base64)를 입력하세요..." class="w-full bg-zinc-900/80 border border-zinc-800 rounded-lg p-3 text-xs text-zinc-100 font-mono placeholder-zinc-600 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 transition-all resize-none"></textarea>
+                        <!-- 3-A. 텍스트 모드 암호문 입력 -->
+                        <div id="decrypt-text-area">
+                            <label class="field-label" for="decrypt-cipher-input">3. 암호화된 코드 (Ciphertext) 입력</label>
+                            <textarea id="decrypt-cipher-input" rows="2" class="mono-field" placeholder="암호화된 Base64 코드를 입력하세요..."></textarea>
                         </div>
 
-                        <!-- Quick fill button from Left panel -->
-                        <div class="flex justify-end">
-                            <button onclick="fillFromEncryptOutput()" class="text-xs text-zinc-400 hover:text-zinc-200 transition-colors flex items-center space-x-1">
-                                <i class="fa-solid fa-arrow-right-to-bracket text-zinc-500"></i>
-                                <span>왼쪽 암호화 결과 불러오기</span>
+                        <!-- 3-B. 파일 모드 .enc 파일 선택 -->
+                        <div id="decrypt-file-area" class="hidden">
+                            <label class="field-label">3. 암호화된 파일 (.enc) 선택</label>
+                            <div id="decrypt-dropzone" class="dropzone decrypt-zone" onclick="document.getElementById('decrypt-file-input').click()">
+                                <input type="file" id="decrypt-file-input" class="hidden" onchange="handleDecryptFileSelect(this.files[0])">
+                                <div class="dropzone-icon">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                                    </svg>
+                                </div>
+                                <div class="dropzone-title">탭하여 .enc 암호화 파일 불러오기</div>
+                                <div class="dropzone-desc">해독 완료 시 원래 파일 이름과 확장자 그대로 복원됩니다</div>
+                                <div id="decrypt-file-info" class="file-badge hidden"></div>
+                            </div>
+                        </div>
+
+                        <!-- 왼쪽 결과 불러오기 -->
+                        <div style="display: flex; justify-content: flex-end;">
+                            <button type="button" class="mini-btn" onclick="fillFromEncryptOutput()">
+                                <span>왼쪽 암호화 결과 바로 가져오기 ➔</span>
                             </button>
                         </div>
 
-                        <!-- Button -->
-                        <button id="btn-decrypt" onclick="handleDecrypt()" class="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-100 border border-zinc-700 font-medium py-2.5 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2 text-sm shadow-md active:scale-[0.99]">
-                            <i class="fa-solid fa-lock-open text-emerald-400"></i>
-                            <span>복호화/해독 실행</span>
+                        <!-- 실행 버튼 -->
+                        <button type="button" id="btn-decrypt" class="btn-secondary" onclick="handleDecrypt()">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/>
+                            </svg>
+                            <span id="btn-decrypt-label">복호화 및 텍스트 해독 실행</span>
                         </button>
 
-                        <hr class="border-zinc-800/80 my-4">
+                        <hr class="divider">
 
-                        <!-- Result Plaintext Output -->
-                        <div>
-                            <div class="flex justify-between items-center mb-1.5">
-                                <label class="block text-xs font-medium text-zinc-400 uppercase tracking-wider">복원된 평문 (Decrypted Plaintext)</label>
-                                <button onclick="copyToClipboard('decrypt-plain-output', '복원된 평문')" class="text-xs text-zinc-400 hover:text-zinc-200 transition-colors flex items-center space-x-1">
-                                    <i class="fa-regular fa-copy"></i>
+                        <!-- 결과 1: 텍스트 모드 복원 평문 -->
+                        <div id="decrypt-text-result-box">
+                            <div class="field-label-row">
+                                <label class="field-label" for="decrypt-plain-output">복원된 평문 (Decrypted Plaintext)</label>
+                                <button type="button" class="mini-btn" onclick="copyToClipboard('decrypt-plain-output', '복원된 평문')">
                                     <span>복사</span>
                                 </button>
                             </div>
-                            <textarea id="decrypt-plain-output" readonly rows="3" placeholder="해독 결과 평문이 여기에 표시됩니다." class="w-full bg-zinc-950 border border-zinc-800/80 rounded-lg p-3.5 text-sm text-zinc-100 font-sans focus:outline-none select-all resize-none"></textarea>
+                            <textarea id="decrypt-plain-output" readonly rows="3" placeholder="해독된 원본 텍스트가 여기에 표시됩니다."></textarea>
+                        </div>
+
+                        <!-- 결과 2: 파일 모드 복원 파일 다운로드 & 미리보기 -->
+                        <div id="decrypt-file-result-box" class="hidden">
+                            <label class="field-label">복원된 원본 파일</label>
+                            <a id="download-decrypted-link" class="btn-download emerald hidden" download="restored_file">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                                </svg>
+                                <span id="download-decrypted-name">복원된 파일 저장</span>
+                            </a>
+                            <div id="decrypt-file-placeholder" style="font-size: 12px; color: var(--text-muted); background: var(--bg-deep); border: 1px solid var(--border-color); padding: 11px; border-radius: var(--radius-md); text-align: center;">
+                                해독이 완료되면 원본 파일 다운로드 및 미리보기가 표시됩니다.
+                            </div>
+                            <div id="decrypted-preview" class="preview-box hidden"></div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Footer tip -->
-                <div class="mt-6 pt-3 border-t border-zinc-800/50 flex items-center justify-between text-xs text-zinc-500">
-                    <span class="flex items-center gap-1.5"><i class="fa-solid fa-shield-cat text-zinc-600"></i> 비밀번호나 인증 키 중 하나라도 틀리면 해독되지 않습니다.</span>
+                <div class="panel-footer">
+                    <span>단 1바이트라도 변조되었거나 키/비밀번호가 다르면 해독이 즉시 차단됩니다.</span>
                 </div>
             </section>
         </div>
 
-        <!-- Technical Information Card -->
-        <div class="mt-8 bg-cardBg border border-borderBg rounded-xl p-5 text-xs text-zinc-400">
-            <h3 class="font-semibold text-zinc-200 mb-2 flex items-center gap-2">
-                <i class="fa-solid fa-microchip text-zinc-500"></i> 적용된 최고 등급 보안 알고리즘
-            </h3>
-            <ul class="grid grid-cols-1 md:grid-cols-3 gap-4 text-zinc-400 leading-relaxed">
-                <li class="bg-zinc-900/50 p-3 rounded-lg border border-zinc-800/50">
-                    <strong class="text-amber-400 block mb-1">1. PBKDF2 (600,000 Iterations)</strong>
-                    OWASP 2024 규격 반영. 600,000회 키 연산 스트레칭으로 양자 및 GPU 기반 고속 무차별 대입 해킹을 원천 차단합니다.
-                </li>
-                <li class="bg-zinc-900/50 p-3 rounded-lg border border-zinc-800/50">
-                    <strong class="text-emerald-400 block mb-1">2. Double AES-GCM 256 Layering</strong>
-                    1차 암호화 완료 후, 독립된 키와 IV로 한 번 더 감싸는 이중 구조로 단순 암호 해독 시도를 무력화합니다.
-                </li>
-                <li class="bg-zinc-900/50 p-3 rounded-lg border border-zinc-800/50">
-                    <strong class="text-blue-400 block mb-1">3. AAD 무결성 검증 & Auto-Wipe</strong>
-                    추가 인증 데이터(AAD) 헤더 결합으로 데이터 무결성을 검증하며 지정 시간 후 메모리를 자동 지웁니다.
-                </li>
-            </ul>
+        <!-- 기술 사양 안내 -->
+        <div class="info-card">
+            <div class="info-title">
+                <span>적용된 오프라인 보안 아키텍처 (Zero-Network Web Crypto)</span>
+            </div>
+            <div class="info-grid">
+                <div class="info-item">
+                    <strong style="color: var(--amber);">1. PBKDF2 600,000 Iterations</strong>
+                    OWASP 권고 기준 60만 회 SHA-256 키 스트레칭으로 오프라인 브루트포스 공격을 방어합니다.
+                </div>
+                <div class="info-item">
+                    <strong style="color: var(--emerald);">2. Double AES-GCM 256 + 파일 메타 암호화</strong>
+                    파일의 실제 바이트뿐 아니라 원본 파일명과 MIME 형식까지 이중 암호화 레이어 내부에 봉인합니다.
+                </div>
+                <div class="info-item">
+                    <strong style="color: #60a5fa;">3. 100% 로컬 완결형 & 오프라인 캐시</strong>
+                    외부 서버나 CDN 통신 없이 기기 내부 Web Crypto API만으로 작동하며, 비행기 모드에서도 실행됩니다.
+                </div>
+            </div>
         </div>
     </main>
 
-    <!-- Footer -->
-    <footer class="border-t border-borderBg bg-cardBg py-4 text-center text-xs text-zinc-500">
-        <p>© AES-256 Crypto Studio. Zero Server Communication, 100% Client-Side Web Crypto API Processing.</p>
+    <footer>
+        AES-256 Crypto Studio · 100% Offline Client-Side Web Crypto Processing (No Server Upload)
     </footer>
 
-    <!-- Logic Script -->
     <script>
+        /* =========================================================
+           전역 상태 및 상수 정의
+           ========================================================= */
+        let currentMode = 'text'; // 'text' | 'file'
         let autoWipeTimer = null;
-        // AAD (Additional Authenticated Data) 무결성 검증 문자열
-        const AAD_HEADER = new TextEncoder().encode("AES-256-EXTREME-V2-SECURE-PAYLOAD");
 
-        /**
-         * Toast 알림 표시 함수
-         */
+        let selectedEncryptFile = null;
+        let lastEncryptedBlob = null;
+        let lastEncryptedFileName = '';
+
+        let selectedDecryptFile = null;
+        let lastDecryptedBlobUrl = null;
+        let lastEncryptedBlobUrl = null;
+
+        // AAD (Additional Authenticated Data) 무결성 검증 헤더
+        const AAD_TEXT = new TextEncoder().encode("AES-256-EXTREME-V2-SECURE-PAYLOAD");
+        const AAD_FILE = new TextEncoder().encode("AES-256-EXTREME-V3-BINARY-FILE");
+
+        /* =========================================================
+           오프라인 상태 감지 및 동적 서비스 워커 등록
+           ========================================================= */
+        function updateNetworkBadge() {
+            const dot = document.getElementById('network-dot');
+            const text = document.getElementById('network-text');
+            if (navigator.onLine) {
+                dot.classList.remove('offline');
+                text.textContent = '로컬 암호화 엔진 활성 (온라인)';
+            } else {
+                dot.classList.add('offline');
+                text.textContent = '완전 오프라인 모드 작동 중';
+            }
+        }
+
+        window.addEventListener('online', updateNetworkBadge);
+        window.addEventListener('offline', updateNetworkBadge);
+
+        // GitHub Pages 및 로컬 환경에서 오프라인 캐싱을 위한 Service Worker 등록
+        if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
+            window.addEventListener('load', () => {
+                // 동일 경로에 sw.js가 있으면 우선 등록하고, 없으면 Blob SW 폴백 시도
+                navigator.serviceWorker.register('./sw.js').catch(() => {
+                    const swCode = `
+                        const CACHE = 'aes256-offline-v3';
+                        self.addEventListener('install', e => {
+                            e.waitUntil(caches.open(CACHE).then(c => c.addAll(['./', './index.html'])));
+                            self.skipWaiting();
+                        });
+                        self.addEventListener('activate', e => {
+                            e.waitUntil(self.clients.claim());
+                        });
+                        self.addEventListener('fetch', e => {
+                            if (e.request.method !== 'GET') return;
+                            e.respondWith(
+                                caches.match(e.request).then(cached => cached || fetch(e.request).then(res => {
+                                    const copy = res.clone();
+                                    caches.open(CACHE).then(c => c.put(e.request, copy));
+                                    return res;
+                                }).catch(() => caches.match('./index.html')))
+                            );
+                        });
+                    `;
+                    try {
+                        const blob = new Blob([swCode], { type: 'application/javascript' });
+                        const swUrl = URL.createObjectURL(blob);
+                        navigator.serviceWorker.register(swUrl).catch(() => {});
+                    } catch (e) {}
+                });
+            });
+        }
+
+        /* =========================================================
+           UI 알림 및 유틸리티 함수
+           ========================================================= */
         function showToast(message, isSuccess = true) {
             const toast = document.getElementById('toast');
-            const toastMsg = document.getElementById('toast-message');
-            const toastIcon = document.getElementById('toast-icon');
+            const msgEl = document.getElementById('toast-message');
+            const iconEl = document.getElementById('toast-icon');
 
-            toastMsg.innerText = message;
-            
-            if (isSuccess) {
-                toastIcon.className = 'fa-solid fa-circle-check text-emerald-400';
-            } else {
-                toastIcon.className = 'fa-solid fa-triangle-exclamation text-rose-400';
-            }
+            msgEl.textContent = message;
+            iconEl.innerHTML = isSuccess
+                ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>'
+                : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f43f5e" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
 
-            toast.classList.remove('translate-y-[-100px]', 'opacity-0');
-            toast.classList.add('translate-y-0', 'opacity-100');
-
-            setTimeout(() => {
-                toast.classList.remove('translate-y-0', 'opacity-100');
-                toast.classList.add('translate-y-[-100px]', 'opacity-0');
-            }, 3000);
+            toast.classList.add('show');
+            clearTimeout(toast._hideTimer);
+            toast._hideTimer = setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3200);
         }
 
-        /**
-         * 비밀번호 표시/숨기기 토글
-         */
-        function togglePassVisibility(inputId, iconId) {
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function togglePassVisibility(inputId, btn) {
             const input = document.getElementById(inputId);
-            const icon = document.getElementById(iconId);
             if (input.type === 'password') {
                 input.type = 'text';
-                icon.className = 'fa-solid fa-eye-slash text-xs text-blue-400';
+                btn.style.color = '#60a5fa';
             } else {
                 input.type = 'password';
-                icon.className = 'fa-solid fa-eye text-xs text-zinc-500';
+                btn.style.color = '#a1a1aa';
             }
         }
 
-        /**
-         * 암호 강도 측정 함수 (Entropy Meter)
-         */
         function checkStrength(pass) {
             const bar = document.getElementById('entropy-bar');
             const text = document.getElementById('entropy-text');
 
             if (!pass) {
                 bar.style.width = '0%';
-                text.innerText = '암호 강도: 없음';
-                text.className = 'text-[10px] text-zinc-500';
+                text.textContent = '암호 강도: 없음';
+                text.style.color = 'var(--text-muted)';
                 return;
             }
 
@@ -338,40 +1106,100 @@
             if (/[0-9]/.test(pass)) score += 15;
             if (/[^A-Za-z0-9]/.test(pass)) score += 25;
 
+            bar.style.width = Math.min(score, 100) + '%';
             if (score <= 30) {
-                bar.style.width = score + '%';
-                bar.className = 'h-full bg-rose-500 transition-all duration-300';
-                text.innerText = '암호 강도: 약함 (위험)';
-                text.className = 'text-[10px] text-rose-400';
+                bar.style.backgroundColor = 'var(--rose)';
+                text.textContent = '암호 강도: 약함';
+                text.style.color = 'var(--rose)';
             } else if (score <= 65) {
-                bar.style.width = score + '%';
-                bar.className = 'h-full bg-amber-500 transition-all duration-300';
-                text.innerText = '암호 강도: 보통';
-                text.className = 'text-[10px] text-amber-400';
+                bar.style.backgroundColor = 'var(--amber)';
+                text.textContent = '암호 강도: 보통';
+                text.style.color = 'var(--amber)';
             } else {
-                bar.style.width = score + '%';
-                bar.className = 'h-full bg-emerald-500 transition-all duration-300';
-                text.innerText = '암호 강도: 매우 강력함';
-                text.className = 'text-[10px] text-emerald-400';
+                bar.style.backgroundColor = 'var(--emerald)';
+                text.textContent = '암호 강도: 매우 강력함';
+                text.style.color = 'var(--emerald)';
             }
         }
 
-        /**
-         * ArrayBuffer -> Base64
-         */
+        /* =========================================================
+           모드 전환 (텍스트 모드 <-> 파일 모드)
+           ========================================================= */
+        function switchMode(mode) {
+            currentMode = mode;
+            const isText = mode === 'text';
+
+            document.getElementById('tab-text').classList.toggle('active', isText);
+            document.getElementById('tab-file').classList.toggle('active', !isText);
+
+            document.getElementById('encrypt-text-area').classList.toggle('hidden', !isText);
+            document.getElementById('encrypt-file-area').classList.toggle('hidden', isText);
+            document.getElementById('encrypt-text-result-box').classList.toggle('hidden', !isText);
+            document.getElementById('encrypt-file-result-box').classList.toggle('hidden', isText);
+
+            document.getElementById('decrypt-text-area').classList.toggle('hidden', !isText);
+            document.getElementById('decrypt-file-area').classList.toggle('hidden', isText);
+            document.getElementById('decrypt-text-result-box').classList.toggle('hidden', !isText);
+            document.getElementById('decrypt-file-result-box').classList.toggle('hidden', isText);
+
+            document.getElementById('encrypt-mode-tag').textContent = isText ? '평문 ➔ 이중 암호문' : '원본 파일 ➔ .enc 보안 파일';
+            document.getElementById('decrypt-mode-tag').textContent = isText ? '암호문 ➔ 평문' : '.enc 파일 ➔ 원본 복원';
+            document.getElementById('btn-encrypt-label').textContent = isText ? '이중 키 생성 및 텍스트 암호화' : '이중 키 생성 및 파일 암호화';
+            document.getElementById('btn-decrypt-label').textContent = isText ? '복호화 및 텍스트 해독 실행' : '복호화 및 원본 파일 복원 실행';
+        }
+
+        /* =========================================================
+           파일 선택 및 드래그 앤 드롭 처리
+           ========================================================= */
+        function handleEncryptFileSelect(file) {
+            if (!file) return;
+            selectedEncryptFile = file;
+            const badge = document.getElementById('encrypt-file-info');
+            badge.textContent = `선택됨: ${file.name} (${formatBytes(file.size)})`;
+            badge.classList.remove('hidden');
+        }
+
+        function handleDecryptFileSelect(file) {
+            if (!file) return;
+            selectedDecryptFile = file;
+            const badge = document.getElementById('decrypt-file-info');
+            badge.textContent = `선택됨: ${file.name} (${formatBytes(file.size)})`;
+            badge.classList.remove('hidden');
+        }
+
+        function setupDropzone(zoneId, onFile) {
+            const zone = document.getElementById(zoneId);
+            ['dragenter', 'dragover'].forEach(evt => {
+                zone.addEventListener(evt, e => {
+                    e.preventDefault();
+                    zone.classList.add('dragover');
+                });
+            });
+            ['dragleave', 'drop'].forEach(evt => {
+                zone.addEventListener(evt, e => {
+                    e.preventDefault();
+                    zone.classList.remove('dragover');
+                });
+            });
+            zone.addEventListener('drop', e => {
+                const file = e.dataTransfer.files[0];
+                if (file) onFile(file);
+            });
+        }
+
+        /* =========================================================
+           바이너리 <-> Base64 변환 (대용량 안전 청크 방식)
+           ========================================================= */
         function bufferToBase64(buffer) {
-            let binary = '';
             const bytes = new Uint8Array(buffer);
-            const len = bytes.byteLength;
-            for (let i = 0; i < len; i++) {
-                binary += String.fromCharCode(bytes[i]);
+            const chunkSize = 0x8000;
+            let binary = '';
+            for (let i = 0; i < bytes.length; i += chunkSize) {
+                binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
             }
             return window.btoa(binary);
         }
 
-        /**
-         * Base64 -> Uint8Array
-         */
         function base64ToBuffer(base64) {
             const binaryString = window.atob(base64);
             const len = binaryString.length;
@@ -382,18 +1210,15 @@
             return bytes.buffer;
         }
 
-        /**
-         * PBKDF2 기반 AES-256 키 유도 (600,000회 반복 연산)
-         */
-        async function deriveKeyFromPassphraseAndKey(passphrase, systemKeyBytes, salt, purposeLabel = "DEFAULT") {
+        /* =========================================================
+           PBKDF2 600,000회 키 유도 함수
+           ========================================================= */
+        async function deriveKeyFromPassphraseAndKey(passphrase, systemKeyBytes, salt, purposeLabel) {
             const encoder = new TextEncoder();
-            
-            // 목적별 레이어 구분을 위한 접두사 추가 (이중 암호화 파생 키 분리)
-            const combinedKeyMaterial = new Uint8Array(
-                encoder.encode(passphrase + purposeLabel).length + systemKeyBytes.length
-            );
-            combinedKeyMaterial.set(encoder.encode(passphrase + purposeLabel), 0);
-            combinedKeyMaterial.set(systemKeyBytes, encoder.encode(passphrase + purposeLabel).length);
+            const prefixBytes = encoder.encode(passphrase + purposeLabel);
+            const combinedKeyMaterial = new Uint8Array(prefixBytes.length + systemKeyBytes.length);
+            combinedKeyMaterial.set(prefixBytes, 0);
+            combinedKeyMaterial.set(systemKeyBytes, prefixBytes.length);
 
             const baseKey = await window.crypto.subtle.importKey(
                 "raw",
@@ -403,7 +1228,6 @@
                 ["deriveKey"]
             );
 
-            // 600,000회 스트레칭 (OWASP 2024 추천 규격)
             return await window.crypto.subtle.deriveKey(
                 {
                     name: "PBKDF2",
@@ -418,41 +1242,77 @@
             );
         }
 
-        /**
-         * 보안 자동 파기 타이머 트리거
-         */
-        function resetAutoWipeTimer() {
-            if (autoWipeTimer) clearTimeout(autoWipeTimer);
+        /* =========================================================
+           이중 AES-GCM 256 코어 암호화 / 복호화 엔진
+           ========================================================= */
+        async function doubleEncryptBytes(rawUint8Array, passphrase, aadBytes) {
+            const systemKeyBytes = window.crypto.getRandomValues(new Uint8Array(32));
+            const salt1 = window.crypto.getRandomValues(new Uint8Array(16));
+            const salt2 = window.crypto.getRandomValues(new Uint8Array(16));
+            const iv1 = window.crypto.getRandomValues(new Uint8Array(12));
+            const iv2 = window.crypto.getRandomValues(new Uint8Array(12));
 
-            const seconds = parseInt(document.getElementById('auto-wipe-select').value, 10);
-            if (seconds > 0) {
-                autoWipeTimer = setTimeout(() => {
-                    document.getElementById('encrypt-input').value = '';
-                    document.getElementById('encrypt-passphrase').value = '';
-                    document.getElementById('encrypt-key-output').value = '';
-                    document.getElementById('encrypt-cipher-output').value = '';
-                    document.getElementById('decrypt-key-input').value = '';
-                    document.getElementById('decrypt-passphrase').value = '';
-                    document.getElementById('decrypt-cipher-input').value = '';
-                    document.getElementById('decrypt-plain-output').value = '';
-                    checkStrength('');
-                    showToast('보안 방침에 따라 데이터가 자동 파기되었습니다.', false);
-                }, seconds * 1000);
-            }
+            const key1 = await deriveKeyFromPassphraseAndKey(passphrase, systemKeyBytes, salt1, "LAYER_1");
+            const key2 = await deriveKeyFromPassphraseAndKey(passphrase, systemKeyBytes, salt2, "LAYER_2");
+
+            const layer1 = await window.crypto.subtle.encrypt(
+                { name: "AES-GCM", iv: iv1, additionalData: aadBytes },
+                key1,
+                rawUint8Array
+            );
+
+            const layer2 = await window.crypto.subtle.encrypt(
+                { name: "AES-GCM", iv: iv2, additionalData: aadBytes },
+                key2,
+                layer1
+            );
+
+            // [Salt1(16) | Salt2(16) | IV1(12) | IV2(12) | DoubleCipherBytes]
+            const payload = new Uint8Array(56 + layer2.byteLength);
+            payload.set(salt1, 0);
+            payload.set(salt2, 16);
+            payload.set(iv1, 32);
+            payload.set(iv2, 44);
+            payload.set(new Uint8Array(layer2), 56);
+
+            return { systemKeyBytes, payload };
         }
 
-        /**
-         * 이중(Double Layer) 강화 암호화 함수
-         */
-        async function handleEncrypt() {
-            const plainText = document.getElementById('encrypt-input').value;
-            const passphrase = document.getElementById('encrypt-passphrase').value;
-
-            if (!plainText.trim()) {
-                showToast('암호화할 평문을 입력해 주세요.', false);
-                document.getElementById('encrypt-input').focus();
-                return;
+        async function doubleDecryptBytes(payloadUint8Array, systemKeyBytes, passphrase, aadBytes) {
+            if (payloadUint8Array.length < 57) {
+                throw new Error("손상되었거나 유효하지 않은 암호화 데이터입니다.");
             }
+
+            const salt1 = payloadUint8Array.slice(0, 16);
+            const salt2 = payloadUint8Array.slice(16, 32);
+            const iv1 = payloadUint8Array.slice(32, 44);
+            const iv2 = payloadUint8Array.slice(44, 56);
+            const doubleCipher = payloadUint8Array.slice(56);
+
+            const key1 = await deriveKeyFromPassphraseAndKey(passphrase, systemKeyBytes, salt1, "LAYER_1");
+            const key2 = await deriveKeyFromPassphraseAndKey(passphrase, systemKeyBytes, salt2, "LAYER_2");
+
+            const layer1 = await window.crypto.subtle.decrypt(
+                { name: "AES-GCM", iv: iv2, additionalData: aadBytes },
+                key2,
+                doubleCipher
+            );
+
+            const plainBuffer = await window.crypto.subtle.decrypt(
+                { name: "AES-GCM", iv: iv1, additionalData: aadBytes },
+                key1,
+                layer1
+            );
+
+            return new Uint8Array(plainBuffer);
+        }
+
+        /* =========================================================
+           실행 핸들러: 암호화 (텍스트 & 파일 분기)
+           ========================================================= */
+        async function handleEncrypt() {
+            const passphrase = document.getElementById('encrypt-passphrase').value;
+            const btn = document.getElementById('btn-encrypt');
 
             if (!passphrase) {
                 showToast('이중 보안을 위한 보조 비밀번호를 입력해 주세요.', false);
@@ -460,64 +1320,89 @@
                 return;
             }
 
-            try {
-                // 1. 32바이트 시스템 랜덤키 + Salt1, Salt2 + IV1, IV2 생성
-                const systemKeyBytes = window.crypto.getRandomValues(new Uint8Array(32));
-                const salt1 = window.crypto.getRandomValues(new Uint8Array(16));
-                const salt2 = window.crypto.getRandomValues(new Uint8Array(16));
-                const iv1 = window.crypto.getRandomValues(new Uint8Array(12));
-                const iv2 = window.crypto.getRandomValues(new Uint8Array(12));
+            if (currentMode === 'text') {
+                const plainText = document.getElementById('encrypt-input').value;
+                if (!plainText.trim()) {
+                    showToast('암호화할 평문을 입력해 주세요.', false);
+                    document.getElementById('encrypt-input').focus();
+                    return;
+                }
 
-                // 2. PBKDF2 (60만 회) 기반 1차 및 2차 AES-256 키 유도
-                const cryptoKey1 = await deriveKeyFromPassphraseAndKey(passphrase, systemKeyBytes, salt1, "LAYER_1");
-                const cryptoKey2 = await deriveKeyFromPassphraseAndKey(passphrase, systemKeyBytes, salt2, "LAYER_2");
+                btn.disabled = true;
+                try {
+                    const rawBytes = new TextEncoder().encode(plainText);
+                    const { systemKeyBytes, payload } = await doubleEncryptBytes(rawBytes, passphrase, AAD_TEXT);
 
-                // 3. 1차 AES-GCM 암호화
-                const encoder = new TextEncoder();
-                const encryptedBuffer1 = await window.crypto.subtle.encrypt(
-                    { name: "AES-GCM", iv: iv1, additionalData: AAD_HEADER },
-                    cryptoKey1,
-                    encoder.encode(plainText)
-                );
+                    document.getElementById('encrypt-key-output').value = bufferToBase64(systemKeyBytes);
+                    document.getElementById('encrypt-cipher-output').value = bufferToBase64(payload);
 
-                // 4. 2차 Double AES-GCM 암호화 (1차 결과를 한번 더 암호화)
-                const encryptedBuffer2 = await window.crypto.subtle.encrypt(
-                    { name: "AES-GCM", iv: iv2, additionalData: AAD_HEADER },
-                    cryptoKey2,
-                    encryptedBuffer1
-                );
+                    showToast('텍스트 이중 암호화 완료 (PBKDF2 60만 회)');
+                    resetAutoWipeTimer();
+                } catch (err) {
+                    console.error(err);
+                    showToast('암호화 중 오류가 발생했습니다.', false);
+                } finally {
+                    btn.disabled = false;
+                }
+            } else {
+                if (!selectedEncryptFile) {
+                    showToast('암호화할 파일을 먼저 선택해 주세요.', false);
+                    return;
+                }
 
-                // 5. 페이로드 바이트 결합: Salt1(16) + Salt2(16) + IV1(12) + IV2(12) + DoubleEncryptedData
-                const combinedPayload = new Uint8Array(
-                    salt1.length + salt2.length + iv1.length + iv2.length + encryptedBuffer2.byteLength
-                );
-                
-                let offset = 0;
-                combinedPayload.set(salt1, offset); offset += salt1.length;
-                combinedPayload.set(salt2, offset); offset += salt2.length;
-                combinedPayload.set(iv1, offset); offset += iv1.length;
-                combinedPayload.set(iv2, offset); offset += iv2.length;
-                combinedPayload.set(new Uint8Array(encryptedBuffer2), offset);
+                btn.disabled = true;
+                try {
+                    const fileBuffer = await selectedEncryptFile.arrayBuffer();
+                    const fileBytes = new Uint8Array(fileBuffer);
 
-                // 6. 결과 출력
-                document.getElementById('encrypt-key-output').value = bufferToBase64(systemKeyBytes);
-                document.getElementById('encrypt-cipher-output').value = bufferToBase64(combinedPayload);
+                    // 파일 메타데이터(원본 파일명 + MIME 타입) JSON을 암호화 내부에 함께 패킹
+                    // 구조: [메타데이터 길이(4바이트 Uint32 BigEndian) | 메타데이터 JSON 바이트 | 원본 파일 바이너리]
+                    const metaObj = {
+                        name: selectedEncryptFile.name,
+                        type: selectedEncryptFile.type || 'application/octet-stream'
+                    };
+                    const metaBytes = new TextEncoder().encode(JSON.stringify(metaObj));
+                    const packedBytes = new Uint8Array(4 + metaBytes.length + fileBytes.length);
 
-                showToast('Double AES-256 & PBKDF2 600,000회 암호화 완료');
-                resetAutoWipeTimer();
-            } catch (err) {
-                console.error(err);
-                showToast('암호화 도중 오류가 발생했습니다.', false);
+                    const view = new DataView(packedBytes.buffer);
+                    view.setUint32(0, metaBytes.length, false);
+                    packedBytes.set(metaBytes, 4);
+                    packedBytes.set(fileBytes, 4 + metaBytes.length);
+
+                    const { systemKeyBytes, payload } = await doubleEncryptBytes(packedBytes, passphrase, AAD_FILE);
+
+                    document.getElementById('encrypt-key-output').value = bufferToBase64(systemKeyBytes);
+
+                    if (lastEncryptedBlobUrl) URL.revokeObjectURL(lastEncryptedBlobUrl);
+                    lastEncryptedBlob = new Blob([payload], { type: 'application/octet-stream' });
+                    lastEncryptedFileName = selectedEncryptFile.name + '.enc';
+                    lastEncryptedBlobUrl = URL.createObjectURL(lastEncryptedBlob);
+
+                    const dlLink = document.getElementById('download-encrypted-link');
+                    dlLink.href = lastEncryptedBlobUrl;
+                    dlLink.download = lastEncryptedFileName;
+                    document.getElementById('download-encrypted-name').textContent = `${lastEncryptedFileName} (${formatBytes(payload.length)}) 저장`;
+                    dlLink.classList.remove('hidden');
+                    document.getElementById('encrypt-file-placeholder').classList.add('hidden');
+
+                    showToast('파일 이중 암호화 완료! 인증 키를 꼭 복사해 두세요.');
+                    resetAutoWipeTimer();
+                } catch (err) {
+                    console.error(err);
+                    showToast('파일 암호화 중 오류가 발생했습니다.', false);
+                } finally {
+                    btn.disabled = false;
+                }
             }
         }
 
-        /**
-         * 이중(Double Layer) 강화 복호화 함수
-         */
+        /* =========================================================
+           실행 핸들러: 복호화 (텍스트 & 파일 분기)
+           ========================================================= */
         async function handleDecrypt() {
             const systemKeyBase64 = document.getElementById('decrypt-key-input').value.trim();
             const passphrase = document.getElementById('decrypt-passphrase').value;
-            const cipherBase64 = document.getElementById('decrypt-cipher-input').value.trim();
+            const btn = document.getElementById('btn-decrypt');
 
             if (!systemKeyBase64) {
                 showToast('시스템 인증 키를 입력해 주세요.', false);
@@ -531,99 +1416,180 @@
                 return;
             }
 
-            if (!cipherBase64) {
-                showToast('암호화된 코드를 입력해 주세요.', false);
-                document.getElementById('decrypt-cipher-input').focus();
-                return;
-            }
-
-            try {
-                const systemKeyBytes = new Uint8Array(base64ToBuffer(systemKeyBase64));
-                const combinedPayload = new Uint8Array(base64ToBuffer(cipherBase64));
-
-                // 최소 길이 검증: 16(Salt1) + 16(Salt2) + 12(IV1) + 12(IV2) + min body
-                if (combinedPayload.length < 57) {
-                    throw new Error("유효하지 않거나 변조된 암호문 페이로드입니다.");
+            if (currentMode === 'text') {
+                const cipherBase64 = document.getElementById('decrypt-cipher-input').value.trim();
+                if (!cipherBase64) {
+                    showToast('암호화된 코드를 입력해 주세요.', false);
+                    document.getElementById('decrypt-cipher-input').focus();
+                    return;
                 }
 
-                // 페이로드 해체
-                const salt1 = combinedPayload.slice(0, 16);
-                const salt2 = combinedPayload.slice(16, 32);
-                const iv1 = combinedPayload.slice(32, 44);
-                const iv2 = combinedPayload.slice(44, 56);
-                const doubleCiphertext = combinedPayload.slice(56);
+                btn.disabled = true;
+                try {
+                    const systemKeyBytes = new Uint8Array(base64ToBuffer(systemKeyBase64));
+                    const payloadBytes = new Uint8Array(base64ToBuffer(cipherBase64));
 
-                // PBKDF2 60만회 키 유도
-                const cryptoKey1 = await deriveKeyFromPassphraseAndKey(passphrase, systemKeyBytes, salt1, "LAYER_1");
-                const cryptoKey2 = await deriveKeyFromPassphraseAndKey(passphrase, systemKeyBytes, salt2, "LAYER_2");
+                    const plainBytes = await doubleDecryptBytes(payloadBytes, systemKeyBytes, passphrase, AAD_TEXT);
+                    document.getElementById('decrypt-plain-output').value = new TextDecoder().decode(plainBytes);
 
-                // 1. 2차 복호화 (외곽 암호화 해제)
-                const decryptedLayer1Buffer = await window.crypto.subtle.decrypt(
-                    { name: "AES-GCM", iv: iv2, additionalData: AAD_HEADER },
-                    cryptoKey2,
-                    doubleCiphertext
-                );
+                    showToast('이중 해독 및 무결성 검증 완료');
+                    resetAutoWipeTimer();
+                } catch (err) {
+                    console.error(err);
+                    document.getElementById('decrypt-plain-output').value = '';
+                    showToast('해독 실패: 키·비밀번호가 틀렸거나 데이터가 변조되었습니다.', false);
+                } finally {
+                    btn.disabled = false;
+                }
+            } else {
+                if (!selectedDecryptFile) {
+                    showToast('해독할 .enc 파일을 먼저 선택해 주세요.', false);
+                    return;
+                }
 
-                // 2. 1차 복호화 (내부 암호화 해제하여 평문 복원)
-                const decryptedPlainBuffer = await window.crypto.subtle.decrypt(
-                    { name: "AES-GCM", iv: iv1, additionalData: AAD_HEADER },
-                    cryptoKey1,
-                    decryptedLayer1Buffer
-                );
+                btn.disabled = true;
+                const previewEl = document.getElementById('decrypted-preview');
+                previewEl.classList.add('hidden');
+                previewEl.innerHTML = '';
 
-                const decoder = new TextDecoder();
-                document.getElementById('decrypt-plain-output').value = decoder.decode(decryptedPlainBuffer);
+                try {
+                    const systemKeyBytes = new Uint8Array(base64ToBuffer(systemKeyBase64));
+                    const encBuffer = await selectedDecryptFile.arrayBuffer();
+                    const payloadBytes = new Uint8Array(encBuffer);
 
-                showToast('이중 해독 및 무결성 검증을 완료했습니다.');
-                resetAutoWipeTimer();
+                    const packedBytes = await doubleDecryptBytes(payloadBytes, systemKeyBytes, passphrase, AAD_FILE);
 
-            } catch (err) {
-                console.error(err);
-                document.getElementById('decrypt-plain-output').value = '';
-                showToast('해독 실패: 인증 키, 비밀번호가 올바르지 않거나 데이터가 변조되었습니다.', false);
+                    // 언패킹: 메타데이터 길이(4바이트) + JSON + 원본 파일 데이터
+                    if (packedBytes.length < 5) {
+                        throw new Error("복원된 파일 헤더가 손상되었습니다.");
+                    }
+                    const view = new DataView(packedBytes.buffer);
+                    const metaLen = view.getUint32(0, false);
+                    const metaBytes = packedBytes.slice(4, 4 + metaLen);
+                    const originalFileBytes = packedBytes.slice(4 + metaLen);
+
+                    const metaObj = JSON.parse(new TextDecoder().decode(metaBytes));
+                    const restoredName = metaObj.name || 'restored_file';
+                    const restoredType = metaObj.type || 'application/octet-stream';
+
+                    if (lastDecryptedBlobUrl) URL.revokeObjectURL(lastDecryptedBlobUrl);
+                    const restoredBlob = new Blob([originalFileBytes], { type: restoredType });
+                    lastDecryptedBlobUrl = URL.createObjectURL(restoredBlob);
+
+                    const dlLink = document.getElementById('download-decrypted-link');
+                    dlLink.href = lastDecryptedBlobUrl;
+                    dlLink.download = restoredName;
+                    document.getElementById('download-decrypted-name').textContent = `${restoredName} (${formatBytes(originalFileBytes.length)}) 다운로드`;
+                    dlLink.classList.remove('hidden');
+                    document.getElementById('decrypt-file-placeholder').classList.add('hidden');
+
+                    // 이미지 파일인 경우 즉시 오프라인 미리보기 제공
+                    if (restoredType.startsWith('image/')) {
+                        const img = document.createElement('img');
+                        img.src = lastDecryptedBlobUrl;
+                        img.alt = restoredName;
+                        previewEl.appendChild(img);
+                        previewEl.classList.remove('hidden');
+                    }
+
+                    showToast(`파일 해독 완료: ${restoredName}`);
+                    resetAutoWipeTimer();
+                } catch (err) {
+                    console.error(err);
+                    document.getElementById('download-decrypted-link').classList.add('hidden');
+                    document.getElementById('decrypt-file-placeholder').classList.remove('hidden');
+                    showToast('파일 해독 실패: 인증 키 또는 비밀번호를 확인하세요.', false);
+                } finally {
+                    btn.disabled = false;
+                }
             }
         }
 
-        /**
-         * 클립보드 복사 함수
-         */
+        /* =========================================================
+           보조 기능: 클립보드 복사, 왼쪽 결과 가져오기, 자동 파기
+           ========================================================= */
         function copyToClipboard(elementId, labelText) {
             const elem = document.getElementById(elementId);
-            const textToCopy = elem.value;
-
-            if (!textToCopy) {
+            if (!elem.value) {
                 showToast('복사할 내용이 없습니다.', false);
                 return;
             }
-
             elem.select();
-            
+            elem.setSelectionRange(0, 999999);
             try {
                 document.execCommand('copy');
-                showToast(`${labelText} 복사되었습니다.`);
+                showToast(`${labelText}가 클립보드에 복사되었습니다.`);
             } catch (err) {
-                showToast('복사 실행 실패', false);
+                showToast('복사에 실패했습니다. 길게 눌러 복사해 주세요.', false);
             }
         }
 
-        /**
-         * 왼쪽 암호화 결과 오른쪽 복호화 입력으로 자동 가져오기
-         */
         function fillFromEncryptOutput() {
             const key = document.getElementById('encrypt-key-output').value;
             const pass = document.getElementById('encrypt-passphrase').value;
-            const cipher = document.getElementById('encrypt-cipher-output').value;
 
-            if (!key || !cipher) {
-                showToast('왼쪽 영역에서 먼저 암호화를 실행해 주세요.', false);
+            if (!key) {
+                showToast('왼쪽 패널에서 먼저 암호화를 실행해 주세요.', false);
                 return;
             }
 
             document.getElementById('decrypt-key-input').value = key;
             document.getElementById('decrypt-passphrase').value = pass;
-            document.getElementById('decrypt-cipher-input').value = cipher;
-            showToast('암호화 키, 비밀번호 및 암호문 데이터를 가져왔습니다.');
+
+            if (currentMode === 'text') {
+                const cipher = document.getElementById('encrypt-cipher-output').value;
+                document.getElementById('decrypt-cipher-input').value = cipher;
+                showToast('인증 키, 비밀번호, 암호문을 가져왔습니다.');
+            } else if (lastEncryptedBlob) {
+                const encFile = new File([lastEncryptedBlob], lastEncryptedFileName || 'encrypted.enc', {
+                    type: 'application/octet-stream'
+                });
+                handleDecryptFileSelect(encFile);
+                showToast('인증 키, 비밀번호, 생성된 .enc 파일을 바로 연결했습니다.');
+            }
         }
+
+        function resetAutoWipeTimer() {
+            if (autoWipeTimer) clearTimeout(autoWipeTimer);
+            const seconds = parseInt(document.getElementById('auto-wipe-select').value, 10);
+            if (seconds > 0) {
+                autoWipeTimer = setTimeout(() => {
+                    document.getElementById('encrypt-input').value = '';
+                    document.getElementById('encrypt-passphrase').value = '';
+                    document.getElementById('encrypt-key-output').value = '';
+                    document.getElementById('encrypt-cipher-output').value = '';
+                    document.getElementById('decrypt-key-input').value = '';
+                    document.getElementById('decrypt-passphrase').value = '';
+                    document.getElementById('decrypt-cipher-input').value = '';
+                    document.getElementById('decrypt-plain-output').value = '';
+
+                    selectedEncryptFile = null;
+                    selectedDecryptFile = null;
+                    lastEncryptedBlob = null;
+                    document.getElementById('encrypt-file-info').classList.add('hidden');
+                    document.getElementById('decrypt-file-info').classList.add('hidden');
+                    document.getElementById('download-encrypted-link').classList.add('hidden');
+                    document.getElementById('encrypt-file-placeholder').classList.remove('hidden');
+                    document.getElementById('download-decrypted-link').classList.add('hidden');
+                    document.getElementById('decrypt-file-placeholder').classList.remove('hidden');
+                    document.getElementById('decrypted-preview').classList.add('hidden');
+                    document.getElementById('decrypted-preview').innerHTML = '';
+
+                    if (lastEncryptedBlobUrl) URL.revokeObjectURL(lastEncryptedBlobUrl);
+                    if (lastDecryptedBlobUrl) URL.revokeObjectURL(lastDecryptedBlobUrl);
+
+                    checkStrength('');
+                    showToast('보안 파기 타이머에 의해 모든 메모리 데이터가 초기화되었습니다.', false);
+                }, seconds * 1000);
+            }
+        }
+
+        // 초기화
+        window.addEventListener('DOMContentLoaded', () => {
+            updateNetworkBadge();
+            setupDropzone('encrypt-dropzone', handleEncryptFileSelect);
+            setupDropzone('decrypt-dropzone', handleDecryptFileSelect);
+        });
     </script>
 </body>
 </html>
